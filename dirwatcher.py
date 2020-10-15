@@ -3,9 +3,13 @@
 Dirwatcher - A long-running program
 """
 
-__author__ = "???"
+__author__ = "Bethsheba Zebata"
 
 import sys
+import signal
+import logger
+
+exit_flag = False
 
 
 def search_for_magic(filename, start_line, magic_string):
@@ -25,11 +29,19 @@ def create_parser():
 
 def signal_handler(sig_num, frame):
     # Your code here
+    global exit_flag
+    signals = dict((k, v) for v, k in reversed(sorted(signal.__dict__.items()))
+                   if v.startswith('SIG') and not v.startswith('SIG_'))
+    logger.warning('Signal Received:' + signals[sig_num])
+    if sig_num == signal.SIGINT or signal.SIGTERM:
+        exit_flag = True
     return
 
 
 def main(args):
     # Your code here
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
     return
 
 
