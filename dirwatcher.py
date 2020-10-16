@@ -7,13 +7,16 @@ __author__ = "Bethsheba Zebata"
 
 import sys
 import signal
-import logger
+import logging
 import os
 import argparse
+import time
+import datetime
 
 exit_flag = False
 filesfound = []
 magic_word_pos = {}
+logger = logging.getLogger(__file__)
 
 
 def search_for_magic(filename, start_line, magic_string):
@@ -46,22 +49,24 @@ def watch_directory(path, magic_string, extension, interval):
             magic_word_pos[file] = 0
     for file in filesfound:
         if file not in file_in_dir:
-            logger.info('file {} removed from {}'.format(file, path))
-            filesfound.remove(file)
-            del magic_word_pos[file]
+            logger.info('file {} not found in {}'.format(file, path))
+            # filesfound.remove(file)
+            # del magic_word_pos[file]
     for file in filesfound:
         search_for_magic(file, magic_string, directory)
 
 
 def create_parser():
+    """Creates Parser
+       Sets up command line arguments
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--interval', type=float, default=1,
                         help='polling interval')
     parser.add_argument('magic', help='magic text to watch for')
     parser.add_argument('-e', '--ext', type=str, default='.txt',
                         help="file extension to look for")
-    # Your code here
-    return
+    return parser
 
 
 def signal_handler(sig_num, frame):
@@ -76,10 +81,54 @@ def signal_handler(sig_num, frame):
 
 
 def main(args):
-    # Your code here
+    """
+    Includes a startup and shutdown banner in logs and reports the total
+    runtime (uptime) within shutdown log banner
+    """
+
+    logging.basicConfig(
+        format='%(asctime)s.%(msecs)03d %(name)-12s %(levelname)-8s'
+        '[%(threadName)-12s] %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+
+    logger.setLevel(logging.DEBUG)
+    start_time = datetime.datetime.now()
+
+    logger.info(
+        '\n'
+        '-------------------------------------------------------------------\n'
+        '    Running {0}\n'
+        '    Started on {1}\n'
+        '-------------------------------------------------------------------\n'
+        .format(__file__, start_time.isoformat())
+    )
+
+    parser = create_parser()
+    args = parser.parse_args()
+
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
-    return
+
+    while not exit_flag:
+        try:
+            watch_directory(args)
+        except OSError:
+            logger.error('Directory {} does not exist'.format(args.path))
+            time.sleep(args.interval * 2)
+        except Exception as e:
+            logger.error('Unhandled exception:{}'.format(e))
+        time.sleep(args.interval)
+
+    uptime = datetime.datetime.now()-start_time
+    logger.info(
+        '\n'
+        '-------------------------------------------------------------------\n'
+        '    Stopped {0}\n'
+        '    Uptime was {1}\n'
+        '-------------------------------------------------------------------\n'
+        .format(__file__, str(uptime))
+    )
 
 
 if __name__ == '__main__':
