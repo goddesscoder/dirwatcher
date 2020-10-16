@@ -3,7 +3,7 @@
 Dirwatcher - A long-running program
 """
 
-__author__ = "Bethsheba Zebata"
+__author__ = "Bethsheba Zebata, study hall, peter mayor"
 
 import sys
 import signal
@@ -19,11 +19,11 @@ magic_word_pos = {}
 logger = logging.getLogger(__file__)
 
 
-def search_for_magic(filename, start_line, magic_string):
+def search_for_magic(path, filename, start_line, magic_string):
     """Searches for the magic string in the filename and
     keeps track of the last line searched"""
     global magic_word_pos
-    with open(start_line + '/' + filename) as f:
+    with open(path + '/' + filename) as f:
         for i, line in enumerate(f.readlines(), 1):
             if magic_string in line and i > magic_word_pos[filename]:
                 logger.info('Woohoo! Magic word {} on line {} in file {}'
@@ -41,19 +41,19 @@ def watch_directory(path, magic_string, extension, interval):
     logger.info('Watching dir {}, magic string: {}, extension: {},interval: {}'
                 .format(path, magic_string, extension, interval))
     directory = os.path.abspath(path)
+    # print(directory)
     file_in_dir = os.listdir(directory)
-    for file in file_in_dir:
-        if file.endswith(extension) and file not in filesfound:
-            logger.info('new file: {} found in {}'.format(file, path))
-            filesfound.append(file)
-            magic_word_pos[file] = 0
-    for file in filesfound:
-        if file not in file_in_dir:
-            logger.info('file {} not found in {}'.format(file, path))
-            # filesfound.remove(file)
-            # del magic_word_pos[file]
-    for file in filesfound:
-        search_for_magic(file, magic_string, directory)
+    # print(file_in_dir)
+    for f in file_in_dir:
+        if f.endswith(extension) and f not in filesfound:
+            logger.info('new file: {} found in {}'.format(f, path))
+            filesfound.append(f)
+            magic_word_pos[f] = 0
+    for f in filesfound:
+        if f not in file_in_dir:
+            logger.info('file {} not found in {}'.format(f, path))
+    for f in filesfound:
+        search_for_magic(path, f, 0, magic_string)
 
 
 def create_parser():
@@ -61,11 +61,12 @@ def create_parser():
        Sets up command line arguments
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('-i', '--interval', type=float, default=1,
+    parser.add_argument('-i', '--int', type=float, default=1,
                         help='polling interval')
     parser.add_argument('magic', help='magic text to watch for')
     parser.add_argument('-e', '--ext', type=str, default='.txt',
                         help="file extension to look for")
+    parser.add_argument('-d', '--dir', type=str, help="directory to watch")
     return parser
 
 
@@ -106,19 +107,20 @@ def main(args):
 
     parser = create_parser()
     args = parser.parse_args()
-
+    print(args)
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
     while not exit_flag:
         try:
-            watch_directory(args)
-        except OSError:
-            logger.error('Directory {} does not exist'.format(args.path))
-            time.sleep(args.interval * 2)
+            watch_directory(args.dir, args.magic, args.ext, args.int)
+        except OSError as e:
+            logger.error('Directory {} does not exist'.format(args.dir))
+            # logger.error(e)
+            time.sleep(args.int * 2)
         except Exception as e:
             logger.error('Unhandled exception:{}'.format(e))
-        time.sleep(args.interval)
+        time.sleep(args.int)
 
     uptime = datetime.datetime.now()-start_time
     logger.info(
